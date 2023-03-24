@@ -1,8 +1,12 @@
 from django.http import JsonResponse
+from .encoders import PresentationListEncoder, PresentationDetailEncoder
+from .models import Presentation, Status
+from django.views.decorators.http import require_http_methods
+import json
+from events.models import Conference
 
-from .models import Presentation
 
-
+@require_http_methods(["GET", "POST"])
 def api_list_presentations(request, conference_id):
     """
     Lists the presentation titles and the link to the
@@ -25,17 +29,47 @@ def api_list_presentations(request, conference_id):
         ]
     }
     """
-    presentations = [
-        {
-            "title": p.title,
-            "status": p.status.name,
-            "href": p.get_api_url(),
-        }
-        for p in Presentation.objects.filter(conference=conference_id)
-    ]
-    return JsonResponse({"presentations": presentations})
+    if request.method == "GET":
+        presentations = Presentation.objects.all()
+        return JsonResponse(
+            presentations,
+            encoder=PresentationListEncoder,
+            safe=False,
+        )
+    elif request.method == "POST":
+        content = json.loads(request.body)
+        try:
+            conference = Conference.objects.get(id=conference_id)
+            content["conference"] = conference
+        except Conference.DoesNotExist:
+            return JsonResponse(
+                {"message": "Invalid conference id"},
+                status=400,
+            )
+        # status = Status.objects.get(name="APPROVED")
+        # content["status"] = status
+        # presentation = Presentation.objects.create(**content)
+
+        presentation = Presentation.create(**content)
+        return JsonResponse(
+            presentation,
+            encoder=PresentationDetailEncoder,
+            safe=False,
+        )
 
 
+# Above 8 lines is equivalent to the following 8
+# presentations = []
+# pres_objects = Presentation.objects.filter(conference=conference_id)
+# for p in pres_objects:
+#     presentations.append({
+#         "title": p.title,
+#         "status": p.status.name,
+#         "href": p.get_api_url(),
+#     })
+
+
+@require_http_methods(["DELETE", "GET", "PUT"])
 def api_show_presentation(request, id):
     """
     Returns the details for the Presentation model specified
@@ -61,4 +95,22 @@ def api_show_presentation(request, id):
         }
     }
     """
-    return JsonResponse({})
+    if request.method == "GET":
+        presentation = Presentation.objects.get(id=id)
+        return JsonResponse(
+            presentation,
+            encoder=PresentationDetailEncoder,
+            safe=False,
+        )
+    elif request.method == "DELETE":
+        count, _ = Presentation.objects.filter(id=id).delete()
+        return JsonResponse({"deleted": count > 0})
+    elif request.method == "PUT":
+        content = json.loads(request.body)
+        Presentation.objects.filter(id=id).update(**content)
+        presentation = Presentation.objects.get(id=id)
+        return JsonResponse(
+            presentation,
+            encoder=PresentationDetailEncoder,
+            safe=False,
+        )
