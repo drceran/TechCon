@@ -1,13 +1,15 @@
-from .models import Attendee
+from .models import Attendee, ConferenceVO
 from common.json import ModelEncoder
-from events.encoders import ConferenceListEncoder
+
+
+class ConferenceVODetailEncoder(ModelEncoder):
+    model = ConferenceVO
+    properties = ["name", "import_href"]
 
 
 class AttendeeListEncoder(ModelEncoder):
     model = Attendee
-    properties = [
-        "name",
-    ]
+    properties = ["name"]
 
 
 class AttendeeDetailEncoder(ModelEncoder):
@@ -19,6 +21,4 @@ class AttendeeDetailEncoder(ModelEncoder):
         "created",
         "conference",
     ]
-    encoders = {
-        "conference": ConferenceListEncoder(),
-    }
+    encoders = ({"conference": ConferenceVODetailEncoder()},)
