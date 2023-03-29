@@ -1,6 +1,10 @@
 from .models import Conference, Location
 from common.json import ModelEncoder
 
+# In other people's projects, these classes are in their api_view function.
+# If you update this page, don't forget to update presentations/api_views - "import" "from" part.
+# Because you have ConferenceListEncoder class there
+
 
 class LocationListEncoder(ModelEncoder):
     model = Location

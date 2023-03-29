@@ -1,9 +1,49 @@
 from django.http import JsonResponse
-from .encoders import PresentationListEncoder, PresentationDetailEncoder
-from .models import Presentation, Status
 from django.views.decorators.http import require_http_methods
 import json
+import pika
+
+# from .encoders import PresentationListEncoder, PresentationDetailEncoder
+from common.json import ModelEncoder
 from events.models import Conference
+from .models import Presentation
+
+# This one I have it inside of the events/encoders.py
+# from events.api_views import ConferenceListEncoder
+from events.encoders import ConferenceListEncoder
+
+
+class PresentationListEncoder(ModelEncoder):
+    model = Presentation
+    properties = [
+        # "presenter_name",
+        # "company_name",
+        # "presenter_email",
+        "title",
+    ]
+
+    def get_extra_data(self, o):
+        return {"status": o.status.name}
+
+
+class PresentationDetailEncoder(ModelEncoder):
+    model = Presentation
+    properties = [
+        "presenter_name",
+        "company_name",
+        "presenter_email",
+        "title",
+        "synopsis",
+        "created",
+        "conference",
+    ]
+
+    encoders = {
+        "conference": ConferenceListEncoder(),
+    }
+
+    def get_extra_data(self, o):
+        return {"status": o.status.name}
 
 
 @require_http_methods(["GET", "POST"])
@@ -30,9 +70,9 @@ def api_list_presentations(request, conference_id):
     }
     """
     if request.method == "GET":
-        presentations = Presentation.objects.all()
+        presentations = Presentation.objects.filter(conference=conference_id)
         return JsonResponse(
-            presentations,
+            {"presentations": presentations},
             encoder=PresentationListEncoder,
             safe=False,
         )
@@ -73,7 +113,7 @@ def api_list_presentations(request, conference_id):
 def api_show_presentation(request, id):
     """
     Returns the details for the Presentation model specified
-    by the id parameter.
+    by the pk parameter.
 
     This should return a dictionary with the presenter's name,
     their company name, the presenter's email, the title of
@@ -102,6 +142,7 @@ def api_show_presentation(request, id):
             encoder=PresentationDetailEncoder,
             safe=False,
         )
+    # The rest is not exist in Melody's code:
     elif request.method == "DELETE":
         count, _ = Presentation.objects.filter(id=id).delete()
         return JsonResponse({"deleted": count > 0})
@@ -114,3 +155,59 @@ def api_show_presentation(request, id):
             encoder=PresentationDetailEncoder,
             safe=False,
         )
+
+
+@require_http_methods(["PUT"])
+def api_approve_presentation(request, id):
+    presentation = Presentation.objects.get(id=id)
+    presentation.approve_status()
+    result = {
+        "presenter_name": presentation.presenter_name,
+        "presenter_email": presentation.presenter_email,
+        "title": presentation.title,
+    }
+    message = json.dumps(result)
+
+    parameters = pika.ConnectionParameters(host="rabbitmq")
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue="presentation_approvals")
+    channel.basic_publish(
+        exchange="",
+        routing_key="presentation_approvals",
+        body=message,
+    )
+
+    return JsonResponse(
+        presentation,
+        encoder=PresentationDetailEncoder,
+        safe=False,
+    )
+
+
+@require_http_methods(["PUT"])
+def api_reject_presentation(request, id):
+    presentation = Presentation.objects.get(id=id)
+    presentation.reject_status()
+    result = {
+        "presenter_name": presentation.presenter_name,
+        "presenter_email": presentation.presenter_email,
+        "title": presentation.title,
+    }
+    message = json.dumps(result)
+
+    parameters = pika.ConnectionParameters(host="rabbitmq")
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue="presentation_rejections")
+    channel.basic_publish(
+        exchange="",
+        routing_key="presentation_rejections",
+        body=message,
+    )
+
+    return JsonResponse(
+        presentation,
+        encoder=PresentationDetailEncoder,
+        safe=False,
+    )

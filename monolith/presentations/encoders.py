@@ -1,7 +1,7 @@
 from .models import Presentation
 from common.json import ModelEncoder
 
-
+# These classes- I copy pasted to the presentations/api_views. So I do not need this anymore, actually.
 class PresentationListEncoder(ModelEncoder):
     model = Presentation
     properties = [
@@ -21,4 +21,5 @@ class PresentationDetailEncoder(ModelEncoder):
         "title",
         "synopsis",
         "created",
+        "conference",
     ]
