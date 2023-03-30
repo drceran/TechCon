@@ -1,0 +1,12 @@
+version: "3.7"
+services:
+  monolith:
+    build:
+      context: ./monolith
+      dockerfile: ./Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./monolith:/app
+    depends_on:
+      - rabbitmq

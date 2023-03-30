@@ -31,15 +31,16 @@ def api_list_attendees(request, conference_vo_id=None):
         return JsonResponse(
             {"attendees": attendees},
             encoder=AttendeeListEncoder,
-            safe=False,
+            # safe=False,
         )
-    elif request.method == "POST":
+    else:
+        # request.method == "POST"
         content = json.loads(request.body)
-        conference_href = f"/api/conferences/{conference_vo_id}/ "
         try:
+            conference_href = f"/api/conferences/{conference_vo_id}/"
             conference = ConferenceVO.objects.get(import_href=conference_href)
             content["conference"] = conference
-        except ConferenceVO.DoesNotExist:
+        except conference.DoesNotExist:
             return JsonResponse(
                 {"message": "Invalid conference id"},
                 status=400,

@@ -33,11 +33,12 @@ def api_list_conferences(request):
     if request.method == "GET":
         conferences = Conference.objects.all()
         return JsonResponse(
-            conferences,
+            {"conferences": conferences},
             encoder=ConferenceListEncoder,
             safe=False,
         )
-    elif request.method == "POST":
+    else:
+        # request.method == "POST"
         content = json.loads(request.body)
         conference = Conference.objects.create(**content)
         return JsonResponse(
